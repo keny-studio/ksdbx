@@ -1,4 +1,4 @@
-  /**
+/**
  * Prize data will space out evenly on the deal wheel based on the amount of items available.
  * @param text [string] name of the prize
  * @param color [string] background color of the prize
@@ -8,43 +8,43 @@ const prizes = [
   {
     text: "10% Off Sticker Price",
     color: "hsl(197 30% 43%)",
-    reaction: "dancing"
+    reaction: "dancing",
   },
-  { 
+  {
     text: "Free Car",
     color: "hsl(173 58% 39%)",
-    reaction: "shocked"
+    reaction: "shocked",
   },
-  { 
+  {
     text: "No Money Down",
     color: "hsl(43 74% 66%)",
-    reaction: "shocked" 
+    reaction: "shocked",
   },
   {
     text: "Half Off Sticker Price",
     color: "hsl(27 87% 67%)",
-    reaction: "shocked"
+    reaction: "shocked",
   },
   {
     text: "Free DIY Carwash",
     color: "hsl(12 76% 61%)",
-    reaction: "dancing"
+    reaction: "dancing",
   },
   {
     text: "Eternal Damnation",
     color: "hsl(350 60% 52%)",
-    reaction: "laughing"
+    reaction: "laughing",
   },
   {
     text: "Used Travel Mug",
     color: "hsl(91 43% 54%)",
-    reaction: "laughing"
+    reaction: "laughing",
   },
   {
     text: "One Solid Hug",
     color: "hsl(140 36% 74%)",
-    reaction: "dancing"
-  }
+    reaction: "dancing",
+  },
 ];
 
 const wheel = document.querySelector(".deal-wheel");
@@ -64,8 +64,8 @@ let prizeNodes;
 
 const createPrizeNodes = () => {
   prizes.forEach(({ text, color, reaction }, i) => {
-    const rotation = ((prizeSlice * i) * -1) - prizeOffset;
-    
+    const rotation = prizeSlice * i * -1 - prizeOffset;
+
     spinner.insertAdjacentHTML(
       "beforeend",
       `<li class="prize" data-reaction=${reaction} style="--rotate: ${rotation}deg">
@@ -81,13 +81,14 @@ const createConicGradient = () => {
     `background: conic-gradient(
       from -90deg,
       ${prizes
-        .map(({ color }, i) => `${color} 0 ${(100 / prizes.length) * (prizes.length - i)}%`)
-        .reverse()
-      }
+        .map(
+          ({ color }, i) =>
+            `${color} 0 ${(100 / prizes.length) * (prizes.length - i)}%`
+        )
+        .reverse()}
     );`
   );
 };
-
 
 const setupWheel = () => {
   createConicGradient();
@@ -105,17 +106,17 @@ const runTickerAnimation = () => {
   // https://css-tricks.com/get-value-of-css-rotation-through-javascript/
   const values = spinnerStyles.transform.split("(")[1].split(")")[0].split(",");
   const a = values[0];
-  const b = values[1];  
+  const b = values[1];
   let rad = Math.atan2(b, a);
-  
-  if (rad < 0) rad += (2 * Math.PI);
-  
+
+  if (rad < 0) rad += 2 * Math.PI;
+
   const angle = Math.round(rad * (180 / Math.PI));
   const slice = Math.floor(angle / prizeSlice);
 
   if (currentSlice !== slice) {
     ticker.style.animation = "none";
-    setTimeout(() => ticker.style.animation = null, 10);
+    setTimeout(() => (ticker.style.animation = null), 10);
     currentSlice = slice;
   }
 
