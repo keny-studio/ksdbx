@@ -1,0 +1,176 @@
+@import url('https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@200&display=swap');
+
+*, 
+*::before, 
+*::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;    
+    background-color: #fff;       
+}
+
+header,
+section,
+footer {
+    width: 100%;
+    margin: 0;
+    padding: 0;           
+}
+
+/* Header */
+
+[data-header] {    
+    height: 100vh; 
+    background-image: white;
+    display: flex;
+    justify-content: center;
+    padding-top: 20px;          
+    text-align: center;
+}
+
+/* "SCROLL DOWN" text + up and down animated arrow */
+
+#title-text {
+    font-size: 3rem;        
+    text-transform: uppercase; 
+    font-family: 'Josefin sans', sans-serif;
+    color: #222;
+    position: relative;    
+}
+
+@media(min-width: 700px) {
+    #title-text {
+        font-size: 4rem;        
+    }
+}
+
+#title-text:after {
+    content: "▽";
+    font-size: 2rem;
+    left: 45%;    
+    position: absolute;
+    animation-name: up-down;
+    animation-iteration-count: infinite;      
+    animation-duration: 2s;    
+}
+
+@keyframes up-down {
+    0% {top: 120px;}   
+    25% {top: 100px;} 
+    75% {top: 100px;}        
+    100% {top: 120px;}
+}
+
+/* Sections */
+
+.section-style {
+    display: flex;
+    flex-direction: column;       
+    background-color: #fff;    
+    padding: 25px 0;
+}
+
+.section-style:nth-child(odd) {
+    border-top: 1px solid black;
+    border-bottom: 1px solid black;
+}
+
+.section-style > * + * {
+    margin: 20px 0 0 0; 
+}
+
+/* Inside sections */
+
+[data-box-one] {
+    max-width: 300px;       
+    position: relative;     
+    left: -240px;    
+    display: flex;
+    flex-direction: column;       
+    transition: 0.8s;   
+}
+
+[data-box-two] {
+    max-width: 300px;        
+    position: relative;     
+    left: -240px;    
+    display: flex;
+    flex-direction: column;        
+    transition: 0.8s;   
+}
+
+[data-box-three] {
+    max-width: 300px;        
+    position: relative;     
+    left: -240px;    
+    display: flex;
+    flex-direction: column;        
+    transition: 0.8s;   
+}
+
+/*Inside data-box*/
+
+[data-icon] {
+    text-align: center;
+    padding: 12px;    
+}
+
+.box-grey {
+    background-color: #222;
+    color: #222;    
+    border: 1px solid #222;   
+}
+
+.box-orange {
+    background-color: red;
+    color: #222;    
+    border: 1px solid #ff8008;
+}
+
+[data-icon] > .fas, .fas {
+    font-size: 3rem;
+    color: #fff;    
+}
+
+[data-lorem] {    
+    text-align: center;
+    padding: 12px 6px;
+    font-size: 0.9rem;
+    font-family: 'Ubuntu', sans-serif;    
+}
+
+.box-lorem-grey {
+    background-color: #fff;
+    border: 1px solid #222;
+    color: #222;
+}
+
+.box-lorem-orange {
+    background-color: #fff;
+    border: 1px solid #ff8008;
+    color: #703600;
+}
+
+@media(min-width: 700px) {
+    .section-style {
+        flex-direction: row;
+        min-height: 220px;
+        position: relative; 
+        padding-top: 30px;           
+    }
+    
+    [data-box-one],
+    [data-box-two],
+    [data-box-three] {
+       width: 20%; 
+       position: absolute;
+       margin: 0;
+    }   
+}  
+
+footer {    
+    height: 300px;
+    background-color: #fff;
+}
