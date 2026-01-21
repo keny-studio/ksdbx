@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      ol {
+        background-color: white;
+        border: 2px solid black;
+        right: 10px;
+        top: 10px;
+        position: fixed;
+        scroll-target-group: auto;
+      }
+
+      li {
+        padding: 5px;
+      }
+
+      a:target-current {
+        color: red;
+      }
+
+      .chapter {
+        background: lightgray;
+        height: 60vh;
+        margin: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <ol>
+      <li><a href="#intro">Introduction</a></li>
+      <li><a href="#ch1">Chapter 1</a></li>
+      <li><a href="#ch2">Chapter 2</a></li>
+    </ol>
+
+    <div id="intro" class="chapter">Introduction content</div>
+    <div id="ch1" class="chapter">Chapter 1 content</div>
+    <div id="ch2" class="chapter">Chapter 2 content</div>
+  </body>
+</html>
