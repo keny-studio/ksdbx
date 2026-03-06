@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>AI Tetris — Hold, Score, New Game</title>
+<style>
+  :root { --bs:24px; }
+  *{box-sizing:border-box}
+  body{
+    margin:16px; background:#111; color:#eee; font-family:system-ui,Segoe UI,Roboto,Inter,sans-serif;
+    display:flex; flex-direction:column; align-items:center; gap:12px; user-select:none;
+  }
+  h1{margin:0 0 8px; letter-spacing:.3px}
+  .wrap{display:flex; gap:16px; align-items:flex-start; justify-content:center}
+  .board{
+    width: calc(10 * var(--bs)); height: calc(20 * var(--bs));
+    background:#1e1e1e; border:4px solid #3a3a3a; position:relative;
+  }
+  canvas{display:block; width:100%; height:100%; image-rendering:pixelated; background:#111}
+  .side{display:flex; flex-direction:column; gap:12px; min-width:160px}
+  .box{background:#222; border:4px solid #3a3a3a; border-radius:10px; padding:10px}
+  .label{font-size:12px; color:#bbb; text-transform:uppercase; letter-spacing:.6px; margin-bottom:6px}
+  #holdCanvas,#nextCanvas{width:120px; height:120px; background:#111; border-radius:6px}
+  .scoreline{display:flex; justify-content:space-between; gap:10px}
+  button{
+    width:100%; padding:10px 12px; border:none; border-radius:8px; background:#555; color:#eee; font-weight:700; cursor:pointer;
+  }
+  button:hover:enabled{background:#6a6a6a}
+  button:disabled{opacity:.55; cursor:default}
+  .row{display:flex; gap:8px}
+  .note{font-size:12px; color:#aaa}
+</style>
+</head>
+<body>
+  <h1>AI Tetris</h1>
+  <div class="wrap">
+    <div class="board"><canvas id="board" width="240" height="480"></canvas></div>
+    <div class="side">
+      <div class="box">
+        <div class="scoreline"><div>Score</div><div id="score">0</div></div>
+        <div class="scoreline"><div>Level</div><div id="level">1</div></div>
+        <div class="scoreline"><div>Lines</div><div id="lines">0</div></div>
+      </div>
+      <div class="box">
+        <div class="label">Hold</div>
+        <canvas id="holdCanvas" width="96" height="96"></canvas>
+        <div class="row">
+          <button id="holdBtn">Hold (C)</button>
+        </div>
+      </div>
+      <div class="box">
+        <div class="label">Next</div>
+        <canvas id="nextCanvas" width="96" height="96"></canvas>
+      </div>
+      <div class="box">
+        <div class="row">
+          <button id="newBtn">New Game</button>
+        </div>
+        <div class="row">
+          <button id="startBtn">Start AI</button>
+          <button id="stopBtn" disabled>Stop</button>
+        </div>
+        <div class="note">Arrows to play manually (AI must be stopped).</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // === Setup
+  const ROWS=20, COLS=10, BS=24;
+  const canvas=document.getElementById('board'), ctx=canvas.getContext('2d');
+  const holdCanvas=document.getElementById('holdCanvas'), hctx=holdCanvas.getContext('2d');
+  const nextCanvas=document.getElementById('nextCanvas'), nctx=nextCanvas.getContext('2d');
+  const scoreEl=document.getElementById('score'), levelEl=document.getElementById('level'), linesEl=document.getElementById('lines');
+  const newBtn=document.getElementById('newBtn'), startBtn=document.getElementById('startBtn'), stopBtn=document.getElementById('stopBtn'), holdBtn=document.getElementById('holdBtn');
+
+  const P = {
+    I: [[[1,1,1,1]], [[1],[1],[1],[1]]],
+    J: [[[1,0,0],[1,1,1]], [[1,1],[1,0],[1,0]], [[1,1,1],[0,0,1]], [[0,1],[0,1],[1,1]]],
+    L: [[[0,0,1],[1,1,1]], [[1,0],[1,0],[1,1]], [[1,1,1],[1,0,0]], [[1,1],[0,1],[0,1]]],
+    O: [[[1,1],[1,1]]],
+    S: [[[0,1,1],[1,1,0]], [[1,0],[1,1],[0,1]]],
+    T: [[[0,1,0],[1,1,1]], [[1,0],[1,1],[1,0]], [[1,1,1],[0,1,0]], [[0,1],[1,1],[0,1]]],
+    Z: [[[1,1,0],[0,1,1]], [[0,1],[1,1],[1,0]]],
+  };
+  const COLORS={I:'#00ffff',J:'#0080ff',L:'#ffa500',O:'#ffd400',S:'#00e676',T:'#9b59b6',Z:'#ff4d4d'};
+
+  // 7-bag randomizer
+  let bag=[], rngTypes=()=>{ if(bag.length===0) bag=shuffle(Object.keys(P).flatMap(t=>[t,t,t,t,t,t,t])); return bag.pop(); };
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=(Math.random()* (i+1))|0; [a[i],a[j]]=[a[j],a[i]];} return a; }
+
+  // Game state
+  let board, cur, next, hold=null, holdUsed=false, isGameOver=false;
+  let score=0, level=1, totalLines=0;
+  let dropInterval=800, dropCounter=0, lastTime=0;
+
+  // AI state
+  let aiOn=false, aiQueue=[], aiPlan=null;
+
+  // === Core helpers
+  function emptyBoard(){ return Array.from({length:ROWS}, ()=>Array(COLS).fill(0)); }
+
+  function newPiece(type=rngTypes()){
+    return {type, r:0, c: Math.floor(COLS/2)-2, rot:0};
+  }
+
+  function shapeOf(piece){ return P[piece.type][piece.rot]; }
+
+  function collide(piece, b=board){
+    const s=shapeOf(piece);
+    for(let r=0;r<s.length;r++) for(let c=0;c<s[r].length;c++){
+      if(!s[r][c]) continue;
+      const x=piece.c+c, y=piece.r+r;
+      if(x<0 || x>=COLS || y>=ROWS) return true;
+      if(y>=0 && b[y][x]) return true;
+    }
+    return false;
+  }
+
+  function lock(){
+    const s=shapeOf(cur);
+    for(let r=0;r<s.length;r++) for(let c=0;c<s[r].length;c++){
+      if(!s[r][c]) continue;
+      const x=cur.c+c, y=cur.r+r;
+      if(y>=0) board[y][x]=COLORS[cur.type];
+    }
+  }
+
+  function clearLines(){
+    let cleared=0;
+    for(let r=ROWS-1;r>=0;r--){
+      if(board[r].every(v=>v)){ board.splice(r,1); board.unshift(Array(COLS).fill(0)); cleared++; r++; }
+    }
+    if(cleared){
+      totalLines += cleared;
+      score += [0,40,100,300,1200][cleared]*level;
+      const newLevel = Math.floor(totalLines/10)+1;
+      if(newLevel>level){ level=newLevel; dropInterval=Math.max(80, 800-(level-1)*60); }
+      updateHUD();
+    }
+  }
+
+  function updateHUD(){
+    scoreEl.textContent=score;
+    levelEl.textContent=level;
+    linesEl.textContent=totalLines;
+  }
+
+  function drawBlock(x,y,color){
+    ctx.fillStyle=color; ctx.fillRect(x*BS,y*BS,BS,BS);
+    ctx.strokeStyle='#222'; ctx.lineWidth=2; ctx.strokeRect(x*BS,y*BS,BS,BS);
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    // board
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){ if(board[r][c]) drawBlock(c,r,board[r][c]); }
+    // current
+    if(cur){
+      const s=shapeOf(cur);
+      for(let r=0;r<s.length;r++) for(let c=0;c<s[r].length;c++){
+        if(s[r][c] && cur.r+r>=0) drawBlock(cur.c+c, cur.r+r, COLORS[cur.type]);
+      }
+    }
+  }
+
+  function rotate(){
+    const n=(cur.rot+1)%P[cur.type].length;
+    const candidate={...cur, rot:n};
+    // simple kicks
+    const kicks=[0,-1,1,-2,2];
+    for(const k of kicks){
+      const test={...candidate, c:cur.c+k};
+      if(!collide(test)){ cur=test; return true; }
+    }
+    return false;
+  }
+
+  function move(dx,dy){
+    const test={...cur, c:cur.c+dx, r:cur.r+dy};
+    if(!collide(test)){ cur=test; return true; }
+    return false;
+  }
+
+  function softDropStep(){
+    if(!move(0,1)){
+      if(cur.r<0){ gameOver(); return; }
+      lock();
+      clearLines();
+      cur = spawnNext();
+    }
+  }
+
+  function hardDrop(){
+    while(move(0,1));
+    softDropStep();
+  }
+
+  function spawnNext(){
+    holdUsed=false;
+    const p = next ? {type:next, r:-2, c:Math.floor(COLS/2)-2, rot:0} : newPiece(rngTypes());
+    next = rngTypes();
+    drawPreview(nctx, next);
+    return p;
+  }
+
+  function drawPreview(context, type){
+    context.clearRect(0,0,96,96);
+    if(!type) return;
+    const s=P[type][0];
+    const bs=18;
+    const offX=(96 - s[0].length*bs)/2;
+    const offY=(96 - s.length*bs)/2;
+    context.fillStyle=COLORS[type];
+    for(let r=0;r<s.length;r++) for(let c=0;c<s[r].length;c++){
+      if(s[r][c]){
+        context.fillRect(offX + c*bs, offY + r*bs, bs, bs);
+        context.strokeStyle='#222'; context.lineWidth=2; context.strokeRect(offX + c*bs, offY + r*bs, bs, bs);
+      }
+    }
+  }
+
+  function drawHold(){
+    hctx.clearRect(0,0,96,96);
+    if(!hold) return;
+    drawPreview(hctx, hold);
+  }
+
+  function doHold(){
+    if(holdUsed) return;
+    holdUsed=true;
+    if(!hold){ hold=cur.type; cur = spawnNext(); }
+    else { const t=hold; hold=cur.type; cur={type:t, r:-2, c:Math.floor(COLS/2)-2, rot:0}; }
+    drawHold();
+  }
+
+  function gameOver(){
+    isGameOver=true;
+    aiOn=false; startBtn.disabled=false; stopBtn.disabled=true;
+    alert('Game Over');
+  }
+
+  function newGame(){
+    board=emptyBoard();
+    score=0; totalLines=0; level=1; dropInterval=800; isGameOver=false;
+    hold=null; holdUsed=false; aiOn=false; aiQueue=[]; aiPlan=null;
+    next=null; cur=spawnNext(); cur.r=-2;
+    drawHold(); updateHUD(); draw();
+    startBtn.disabled=false; stopBtn.disabled=true;
+  }
+
+  // === AI (search all placements using heuristic)
+  function cloneBoard(b){ return b.map(row=>row.slice()); }
+  function collideOn(piece, b){
+    const s=P[piece.type][piece.rot];
+    for(let r=0;r<s.length;r++) for(let c=0;c<s[r].length;c++){
+      if(!s[r][c]) continue;
+      const x=piece.c+c, y=piece.r+r;
+      if(x<0||x>=COLS||y>=ROWS) return true;
+      if(y>=0 && b[y][x]) return true;
+    }
+    return false;
+  }
+  function placeAndClear(b, piece){
+    const s=P[piece.type][piece.rot];
+    for(let r=0;r<s.length;r++) for(let c=0;c<s[r].length;c++){
+      if(s[r][c]){ const x=piece.c+c, y=piece.r+r; if(y>=0) b[y][x]=1; }
+    }
+    // clear
+    let cleared=0;
+    for(let r=ROWS-1;r>=0;r--){
+      if(b[r].every(v=>v)){ b.splice(r,1); b.unshift(Array(COLS).fill(0)); cleared++; r++; }
+    }
+    return cleared;
+  }
+  function evaluateBoard(b){
+    // compute heights, holes, bumpiness, aggregate height
+    const heights=Array(COLS).fill(0);
+    let holes=0;
+    for(let c=0;c<COLS;c++){
+      let seen=false;
+      for(let r=0;r<ROWS;r++){
+        if(b[r][c]){
+          if(!seen){ seen=true; heights[c]=ROWS-r; }
+        } else if(seen){ holes++; }
+      }
+    }
+    let bump=0; for(let c=0;c<COLS-1;c++) bump+=Math.abs(heights[c]-heights[c+1]);
+    const aggH = heights.reduce((a,x)=>a+x,0);
+    const maxH = Math.max(...heights);
+    // Tall-stack penalty to avoid topping out
+    const tallPenalty = maxH>16 ? (maxH-16)*200 : 0;
+    // score lower is better
+    return holes*1000 + bump*30 + aggH*8 + tallPenalty;
+  }
+  function findBestMove(piece, b){
+    let best=null, bestScore=Infinity;
+    const rots=P[piece.type].length;
+    for(let rot=0; rot<rots; rot++){
+      // width of shape
+      const s=P[piece.type][rot];
+      const w=s[0].length;
+      for(let x=-2; x<COLS; x++){
+        // drop to y
+        let y=-2;
+        while(!collideOn({type:piece.type, rot, c:x, r:y}, b)) y++;
+        y--;
+        if(y<-1) continue;
+        const test=cloneBoard(b);
+        const p={type:piece.type, rot, c:x, r:y};
+        const cleared=placeAndClear(test, p);
+        let score=evaluateBoard(test) - cleared*1500; // reward lines
+        if(score<bestScore){ bestScore=score; best={x, rot}; }
+      }
+    }
+    return best;
+  }
+
+  function planToActions(from, target){
+    const actions=[];
+    const rotCount=(target.rot - from.rot + P[from.type].length)%P[from.type].length;
+    for(let i=0;i<rotCount;i++) actions.push('rot');
+    const dx=target.x - from.c;
+    const step = dx<0 ? 'left':'right';
+    for(let i=0;i<Math.abs(dx);i++) actions.push(step);
+    actions.push('drop');
+    return actions;
+  }
+
+  function stepAI(){
+    if(!aiOn || isGameOver) return;
+    if(aiQueue.length){
+      const act=aiQueue.shift();
+      if(act==='rot') rotate();
+      else if(act==='left') move(-1,0);
+      else if(act==='right') move(1,0);
+      else if(act==='drop'){ while(move(0,1)); softDropStep(); }
+      draw();
+      return;
+    }
+    // compute plan from current state
+    const b=cloneBoard(board);
+    const target=findBestMove(cur, b);
+    if(!target){ hardDrop(); return; }
+    // If stack is getting high, attempt hold to find better plan once per piece
+    if(!holdUsed){
+      // Try also with hold candidate
+      const holdType = hold ? hold : next; // if no hold, holding brings next piece
+      const altPiece = {type:holdType, r:-2, c:Math.floor(COLS/2)-2, rot:0};
+      const planCur = target;
+      const planHold = findBestMove(altPiece, b);
+      const evalCur = planCur ? 0 : 1e12;
+      const evalHold = planHold ? 0 : 1e11;
+      // crude preference: if no move for current or board very tall, hold
+      if(!planCur || evalHold < evalCur){
+        doHold();
+        draw();
+      }
+    }
+    const again=findBestMove(cur, b);
+    if(!again){ hardDrop(); return; }
+    aiQueue = planToActions(cur, {x:again.x, rot:again.rot});
+  }
+
+  // === Loop
+  function update(t=0){
+    if(isGameOver) return;
+    const dt=t-lastTime; lastTime=t;
+    dropCounter+=dt;
+    if(dropCounter>dropInterval){ softDropStep(); dropCounter=0; }
+    if(aiOn) stepAI();
+    draw();
+    requestAnimationFrame(update);
+  }
+
+  // === Controls
+  newBtn.onclick=()=> newGame();
+  startBtn.onclick=()=>{ if(isGameOver) newGame(); aiOn=true; startBtn.disabled=true; stopBtn.disabled=false; holdBtn.disabled=true; };
+  stopBtn.onclick =()=>{ aiOn=false; startBtn.disabled=false; stopBtn.disabled=true; holdBtn.disabled=false; aiQueue=[]; aiPlan=null; };
+  holdBtn.onclick =()=>{ if(aiOn) return; doHold(); draw(); };
+
+  window.addEventListener('keydown', e=>{
+    if(aiOn || isGameOver) return;
+    if(e.key==='ArrowLeft'){ move(-1,0); }
+    else if(e.key==='ArrowRight'){ move(1,0); }
+    else if(e.key==='ArrowDown'){ softDropStep(); }
+    else if(e.key==='ArrowUp'){ rotate(); }
+    else if(e.key===' '){ hardDrop(); }
+    else if(e.key.toLowerCase()==='c'){ doHold(); }
+    draw();
+  });
+
+  // === Start
+  function init(){
+    document.documentElement.style.setProperty('--bs', BS+'px');
+    newGame();
+    requestAnimationFrame(update);
+  }
+  init();
+})();
+</script>
+</body>
+</html>
