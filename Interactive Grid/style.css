@@ -31,7 +31,7 @@ body {
   grid-template-rows: repeat(40, 1fr);
   grid-template-columns: repeat(40, 1fr);
   position: absolute;
-  transform: rotateX(50deg) rotateY(-5deg) rotateZ(20deg) scale(1.25);
+  transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1);
 }
 
 #container:after,
