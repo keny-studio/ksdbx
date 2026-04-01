@@ -1,0 +1,18 @@
+body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 300vh;
+  margin: 0;
+  padding: 16px;
+}
+.container {
+  height: 80vh;
+  padding: 2px;
+  border: 3px solid hsl(9deg 20% 30%);
+  border-radius: 8px;
+}
+.sticky {
+  height: 20vh;
+  border-radius: 4px;
+}
