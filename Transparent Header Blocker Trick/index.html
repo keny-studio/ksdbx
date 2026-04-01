@@ -1,14 +1,38 @@
 <style>
-  .sticky {
+  html {
+    --blue: hsl(210deg 80% 85%);
+    --header-height: 4rem;
+  }
+  header {
+    position: fixed;
+    z-index: 1;
+    top: 0;
+    height: var(--header-height);
+  }
+  .blocker {
     position: sticky;
-    top: 2px;
-    background: tomato;
+    top: 0;
+    height: var(--header-height);
+  }
+  .hero .blocker {
+    background: var(--blue);
+  }
+  .main-content .blocker {
+    background: white;
   }
 </style>
 
-<div class="container">
-  <div class="sticky"></div>
+<header>Sticky Header</header>
+<div class="hero">
+  <div class="blocker"></div>
+  <h1>Article Title</h1>
 </div>
-<div class="container">
-  <div class="sticky"></div>
-</div>
+<main class="main-content">
+  <div class="blocker"></div>
+  <p>
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed vel lorem felis. Aliquam finibus libero arcu, ut sodales lorem rutrum vitae. Sed et ornare lorem. Aliquam sagittis neque ac consequat tempus. Phasellus sagittis ipsum ut velit lobortis, a dapibus libero lacinia. Integer accumsan augue sit amet ipsum luctus interdum. Nulla interdum id risus in accumsan. Curabitur quis eleifend orci.
+  </p>
+  <p>
+    Sed sit amet tempus lacus. Aenean faucibus, libero nec posuere maximus, nisi risus laoreet est, ac scelerisque justo quam quis quam. Aliquam imperdiet magna in metus porttitor, vel sollicitudin elit placerat. Integer non elit et ante laoreet blandit vitae non diam. Morbi venenatis nisl nec magna consectetur scelerisque.
+  </p>
+</main>
